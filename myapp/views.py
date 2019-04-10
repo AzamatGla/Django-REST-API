@@ -3,40 +3,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status
 from rest_framework.pagination import LimitOffsetPagination
 from .serializers import CompanySerializer, CompanyCreateSerializer, PostSerializer, PostCreateSerializer, \
-    CommentSerializer, CompanyFavoriteSerializer, CompanyListSerializer, PostFavoriteSerializer
+    CommentSerializer, CompanyFavoriteSerializer, CompanyListSerializer, PostFavoriteSerializer, CompanyFavoriteListSerializer
 from .models import Company, Post, Comment, CompanyFavorite
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import TokenAuthentication
 from .permissions import IsCompanyOwner, IsCompanyPostOwner, IsCompanyCommentOwner
 from rest_framework.response import Response
-
-
-class CompanyFavoriteView(generics.CreateAPIView):
-    serializer_class = CompanyFavoriteSerializer
-    authentication_classes = (TokenAuthentication,)
-    permission_classes = (IsAuthenticated,)
-
-    def get_serializer_context(self):
-        context = super(CompanyFavoriteView, self).get_serializer_context()
-        context.update({
-            "user": self.request.user
-        })
-        return context
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        company = Company.objects.get(pk=request.data['company'])
-        user = self.request.user
-        favorite = CompanyFavorite.objects.filter(user=user, company=company)
-        if favorite:
-            favorite.delete()
-            return Response({'Компания удалена из Избранных '},
-                            status=status.HTTP_204_NO_CONTENT)
-        else:
-            serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
-            headers = self.get_success_headers(serializer.data)
-            return Response({'Компания успешно добавлена в Избранное'}, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class CompanyListPagination(LimitOffsetPagination):
@@ -98,6 +70,48 @@ class CompanyDeleteView(generics.DestroyAPIView):
     serializer_class = CompanyListSerializer
     permission_classes = (IsAuthenticated, IsCompanyOwner,)
     authentication_classes = (TokenAuthentication,)
+
+
+class CompanyFavoriteView(generics.CreateAPIView):
+    serializer_class = CompanyFavoriteSerializer
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get_serializer_context(self):
+        context = super(CompanyFavoriteView, self).get_serializer_context()
+        context.update({
+            "user": self.request.user
+        })
+        return context
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        company = Company.objects.get(pk=request.data['company'])
+        user = self.request.user
+        favorite = CompanyFavorite.objects.filter(user=user, company=company)
+        if favorite:
+            favorite.delete()
+            return Response({'Компания удалена из Избранных '},
+                            status=status.HTTP_204_NO_CONTENT)
+        else:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response({'Компания успешно добавлена в Избранное'}, status=status.HTTP_201_CREATED, headers=headers)
+
+
+class MyFavoriteListView(generics.ListAPIView):
+    serializer_class = CompanyFavoriteListSerializer
+
+    def get_queryset(self):
+        return CompanyFavorite.objects.filter(user=self.request.user)
+
+
+class MyPostListView(generics.ListAPIView):
+    serializer_class = PostSerializer
+
+    def get_queryset(self):
+        return Post.objects.filter(user_id__owner=self.request.user)
 
 
 class PostFavoriteView(generics.CreateAPIView):
@@ -185,6 +199,18 @@ class CommentCreateView(generics.CreateAPIView):
     permission_classes = (IsAuthenticated,)
     authentication_classes = (TokenAuthentication,)
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        company = Company.objects.get(pk=request.data['user_id'])
+        if company.owner == self.request.user:
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response({'Комментарий успешно создан'}, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            return Response({'Вы не можете создать комментарий от имени компании, которая вам не принадлежит'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
 
 class CommentEditView(generics.UpdateAPIView):
     queryset = Comment.objects.all()
@@ -198,3 +224,8 @@ class CommentDeleteView(generics.DestroyAPIView):
     serializer_class = CommentSerializer
     permission_classes = (IsAuthenticated, IsCompanyCommentOwner,)
     authentication_classes = (TokenAuthentication,)
+
+
+class CommentDetailView(generics.RetrieveAPIView):
+    queryset = Comment.objects.all()
+    serializer_class = CommentSerializer

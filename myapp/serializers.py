@@ -26,6 +26,13 @@ class CompanyListSerializer(serializers.ModelSerializer):
         fields = ('owner', 'name', 'address', 'contacts', 'info', 'logo', 'id',)
 
 
+class CompanyFavoriteListSerializer(serializers.ModelSerializer):
+    company = CompanyListSerializer()
+    class Meta:
+        model = CompanyFavorite
+        fields = ('company',)
+
+
 class CompanySerializer(serializers.ModelSerializer):
     is_favorite = serializers.SerializerMethodField()
 
@@ -55,6 +62,12 @@ class CompanyCreateSerializer(serializers.ModelSerializer):
 
 
 class PostSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Post
+        fields = ('title', 'info', 'user_id', 'id')
+
+
+class MyPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = ('title', 'info', 'user_id', 'id')
@@ -90,10 +103,7 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ('text', 'post_id', 'id')
 
 
-class CommentDeleteSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Comment
-        fields = ('text', 'post_id', 'id',)
+
 
 
 
