@@ -25,7 +25,7 @@ class IsCompanyCommentOwner(BasePermission):
         if 'pk' not in view.kwargs:
             return False
         comment = Comment.objects.get(pk=view.kwargs['pk'])
-        if comment.post_id.user_id.owner == request.user:
+        if comment.post_id.user_id == request.user:
             return True
 
 
